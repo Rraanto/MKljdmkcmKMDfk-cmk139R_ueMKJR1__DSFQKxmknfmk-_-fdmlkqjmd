@@ -14,9 +14,9 @@ void ajout_histogramme_objet(std::vector<ColorDistribution> &col_hists_object,
                              const cv::Point &haut_gauche,
                              const cv::Point &bas_droite);
 
-cv::Mat recoObject(cv::Mat input,
-                   const std::vector<ColorDistribution> &col_hists,
-                   const std::vector<ColorDistribution> &col_hists_object,
-                   const std::vector<cv::Vec3b> &colors, const int bloc);
+cv::Mat
+recoObject(cv::Mat input,
+           const std::vector<std::vector<ColorDistribution>> &all_col_hists,
+           const std::vector<cv::Vec3b> &colors, const int bloc);
 
 #endif
