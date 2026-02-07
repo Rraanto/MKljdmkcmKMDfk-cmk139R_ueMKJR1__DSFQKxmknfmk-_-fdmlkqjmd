@@ -70,7 +70,7 @@ int main(int ragc, char **argv) {
   all_col_hists.resize(2);
 
   /* objet courant pour l'acquisition (mode B) */
-  int current_object = 1;
+  int obj_courant = 1;
 
   /*
    * Interrupteurs pour switcher entre différents "modes"
@@ -132,24 +132,23 @@ int main(int ragc, char **argv) {
     // acquisition histogramme de l'objet courant
     // (all_col_hists[current_object])
     if (c == 'a') {
-      ajout_histogramme_objet(all_col_hists[current_object], img_input, pt1,
-                              pt2);
-      cout << "[a] objet courant = " << current_object
-           << " / nb hist = " << all_col_hists[current_object].size() << endl;
+      ajout_histogramme_objet(all_col_hists[obj_courant], img_input, pt1, pt2);
+      cout << "[a] objet courant = " << obj_courant
+           << " / nb hist = " << all_col_hists[obj_courant].size() << endl;
     }
 
     // creer un nouvel objet (option B)
     if (c == 'n') {
       all_col_hists.push_back(std::vector<ColorDistribution>());
-      current_object = (int)all_col_hists.size() - 1;
+      obj_courant = all_col_hists.size() - 1;
 
-      if ((int)colors.size() < (int)all_col_hists.size()) {
-        int idx = (int)colors.size() - 1; // 0 est fond; objets commencent a 1
-        Vec3b next_color = palette[(idx - 1) % (int)palette.size()];
+      if (colors.size() < all_col_hists.size()) {
+        int idx = colors.size() - 1; // 0 est fond; objets commencent a 1
+        Vec3b next_color = palette[(idx - 1) % palette.size()];
         colors.push_back(next_color);
       }
 
-      cout << "[n] nouvel objet = " << current_object
+      cout << "[n] nouvel objet = " << obj_courant
            << " / nb objets = " << (int)all_col_hists.size() - 1 << endl;
     }
 
