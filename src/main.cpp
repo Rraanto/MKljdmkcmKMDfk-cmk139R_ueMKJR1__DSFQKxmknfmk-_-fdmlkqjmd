@@ -59,35 +59,43 @@ int main(int ragc, char **argv) {
   Mat frozen; // pour restaurer l'image précédente
               // quand on teste les rectangles NB
 
-  /* points d'encrages pour détecter gauche droite */
-  const Point top_left(0, 0);
-  const Point bottom_center(width / 2, height - 1);
-  const Point middle_top(width / 2, 0);
-  const Point bottom_right(width - 1, height - 1);
+  /*
+   * Pour stocker histogrammes fond et objets
+   * all_col_hists[0] = fond
+   * all_col_hists[1] = objet 1
+   * all_col_hists[2] = objet 2
+   * ...
+   */
+  std::vector<std::vector<ColorDistribution>> all_col_hists;
+  all_col_hists.resize(2);
 
-  /* Pour stocker histogrammes fond et objets */
-  std::vector<ColorDistribution> col_hists;
-  std::vector<ColorDistribution> col_hists_object;
-
-  /* Pour le test particulier de blocs NB */
-  const Rect roiGH(0, 0, width / 2, height / 2);          // gauche haut
-  const Rect roiGB(0, height / 2, width / 2, height / 2); // gauche bas
-  const Rect roiDH(width / 2, 0, width / 2, height / 2);  // droite haut
-  const Rect roiDB(width / 2, height / 2, width / 2,
-                   height / 2); // droite bas
-  const Mat noir(height / 2, width / 2, CV_8UC3, Vec3b(0, 0, 0));
-  const Mat blanc(height / 2, width / 2, CV_8UC3, Vec3b(255, 255, 255));
+  /* objet courant pour l'acquisition (mode B) */
+  int current_object = 1;
 
   /*
    * Interrupteurs pour switcher entre différents "modes"
    */
   bool config_1 = true; // pour alterner entre les configurations
-
-  /* pour la mode reconnaissance */
   bool reco = false;
+
+  /*
+   * Couleurs pour la visualisation:
+   * colors[k] correspond à all_col_hists[k]
+   */
   std::vector<Vec3b> colors;
-  colors.push_back(Vec3b(0, 0, 0));
-  colors.push_back(Vec3b(0, 0, 255));
+  colors.push_back(Vec3b(0, 0, 0));   // fond: noir
+  colors.push_back(Vec3b(0, 0, 255)); // objet 1: rouge
+
+  /* palette simple (BGR) pour les objets supplémentaires */
+  const std::vector<Vec3b> palette = {
+      Vec3b(0, 0, 255),    // rouge
+      Vec3b(0, 255, 0),    // vert
+      Vec3b(255, 0, 0),    // bleu
+      Vec3b(0, 255, 255),  // jaune
+      Vec3b(255, 0, 255),  // magenta
+      Vec3b(255, 255, 0),  // cyan
+      Vec3b(255, 255, 255) // blanc
+  };
 
   /*
    * Boucle principale
@@ -96,7 +104,7 @@ int main(int ragc, char **argv) {
     // 1000 ms -> FPS images
     // ? ms    <- 1 image
     // => 1000 / FPS
-    char c = (char)waitKey(1000 / FPS); // attends 50ms -> 20 images/s
+    char c = (char)waitKey(1000 / FPS);
 
     if (pCap != nullptr && !freeze) {
       (*pCap) >> img_input; // recupere le flux
@@ -113,44 +121,58 @@ int main(int ragc, char **argv) {
     }
 
     if (c == 'v') {
-      /*
-       * Calcule la différence de couleurs entre région gauche et droite
-       * points d'ancrage top_left, bottom_center définies en dehors de la
-       * boucle
-       */
-      calcul_distance_gauche_droite(img_input, top_left, bottom_center,
-                                    middle_top, bottom_right);
+      calcul_distance_gauche_droite(img_input);
     }
 
-    // Histogrammes du fond
+    // Histogrammes du fond (all_col_hists[0])
     if (c == 'b') {
-      calcul_histogrammes_fond(col_hists, img_input);
+      calcul_histogrammes_fond(all_col_hists[0], img_input);
     }
 
-    // calcul de l'histogramme de l'objet
+    // acquisition histogramme de l'objet courant
+    // (all_col_hists[current_object])
     if (c == 'a') {
-      ajout_histogramme_objet(col_hists_object, img_input, pt1, pt2);
+      ajout_histogramme_objet(all_col_hists[current_object], img_input, pt1,
+                              pt2);
+      cout << "[a] objet courant = " << current_object
+           << " / nb hist = " << all_col_hists[current_object].size() << endl;
+    }
+
+    // creer un nouvel objet (option B)
+    if (c == 'n') {
+      all_col_hists.push_back(std::vector<ColorDistribution>());
+      current_object = (int)all_col_hists.size() - 1;
+
+      if ((int)colors.size() < (int)all_col_hists.size()) {
+        int idx = (int)colors.size() - 1; // 0 est fond; objets commencent a 1
+        Vec3b next_color = palette[(idx - 1) % (int)palette.size()];
+        colors.push_back(next_color);
+      }
+
+      cout << "[n] nouvel objet = " << current_object
+           << " / nb objets = " << (int)all_col_hists.size() - 1 << endl;
     }
 
     if (c == 'x' && freeze) {
-      /*
-       * pour test particuliers d'images décomposées en noire et blanc
-       * UNIQUEMENT QUAND FREEZE
-       * Calcule la différence de couleurs région droite/région gauche
-       */
-      test_blocs_nb_et_distance(img_input, frozen, roiGH, roiGB, roiDH, roiDB,
-                                noir, blanc, config_1, top_left, bottom_center,
-                                middle_top, bottom_right);
+      test_blocs_nb_et_distance(img_input, frozen, config_1);
     }
 
     if (c == 'r') {
-      if (col_hists.empty())
+      if (all_col_hists[0].empty()) {
         cout << "Pas d'histogrammes fond" << endl;
-
-      else if (col_hists_object.empty())
-        cout << "Pas d'histogrammes objets" << endl;
-      else {
-        reco = !reco;
+      } else {
+        bool has_object = false;
+        for (size_t k = 1; k < all_col_hists.size(); ++k) {
+          if (!all_col_hists[k].empty()) {
+            has_object = true;
+            break;
+          }
+        }
+        if (!has_object) {
+          cout << "Pas d'histogrammes objets" << endl;
+        } else {
+          reco = !reco;
+        }
       }
     }
 
@@ -158,18 +180,19 @@ int main(int ragc, char **argv) {
 
     // choix d'image à afficher selon mode reco ou non
     if (reco) {
-
       Mat gray;
       cvtColor(img_input, gray, COLOR_BGR2GRAY);
 
-      Mat reco_img =
-          recoObject(img_input, col_hists, col_hists_object, colors, 8);
+      Mat reco_img = recoObject(img_input, all_col_hists, colors, 8);
 
       cvtColor(gray, img_input, COLOR_GRAY2BGR);
       out = 0.5 * reco_img + 0.5 * img_input;
     } else {
       cv::rectangle(img_input, pt1, pt2, Scalar({255.0, 255.0, 255.0}), 1);
     }
+
     imshow("input", out);
   }
+
+  return 0;
 }
