@@ -1,16 +1,38 @@
 #include "reconnaissance.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <limits>
 
 using namespace cv;
 using namespace std;
 
-void
-ajout_histogramme_objet(std::vector<ColorDistribution> &col_hists_object,
-                        const Mat &img_input, const Point &haut_gauche,
-                        const Point &bas_droite) {
+bool accepter(const std::vector<ColorDistribution> &hists,
+              const ColorDistribution &new_hist, float seuil_dist) {
+  /*
+   * Un histogramme est accepté s'il reste à une distance minimale
+   * de tous les histogrammes déjà acquis.
+   */
+  if (hists.empty()) {
+    return true;
+  }
+
+  float best_distance = std::numeric_limits<float>::infinity();
+
+  for (int i = 0; i < hists.size(); i++) {
+    float new_dist = new_hist.distance(hists[i]);
+    if (new_dist < best_distance) {
+      best_distance = new_dist;
+    }
+  }
+
+  return best_distance >= seuil_dist;
+}
+
+void ajout_histogramme_objet(std::vector<ColorDistribution> &col_hists_object,
+                             const Mat &img_input, const Point &haut_gauche,
+                             const Point &bas_droite, float seuil_dist) {
   /*
    * Ajoute l'histogramme actuel d'un objet délimité par une zone
    * rectangulaire définie par deux points d'encrages (haut_gauche et
@@ -19,9 +41,12 @@ ajout_histogramme_objet(std::vector<ColorDistribution> &col_hists_object,
   ColorDistribution obj = ColorDistribution::getColorDistribution(
       img_input, haut_gauche, bas_droite);
 
-  obj.finished();
-  col_hists_object.push_back(obj);
-  cout << "[a] histogramme objets = " << col_hists_object.size() << endl;
+  if (accepter(col_hists_object, obj, seuil_dist)) {
+    col_hists_object.push_back(obj);
+    cout << "[a] histogramme objets = " << col_hists_object.size() << endl;
+  } else {
+    cout << "[a] histogramme rejeté" << endl;
+  }
 }
 
 void calcul_histogrammes_fond(std::vector<ColorDistribution> &col_hists,
@@ -40,8 +65,6 @@ void calcul_histogrammes_fond(std::vector<ColorDistribution> &col_hists,
       Point p2(x + bbloc, y + bbloc);
       ColorDistribution cd =
           ColorDistribution::getColorDistribution(img_input, p1, p2);
-
-      cd.finished();
       col_hists.push_back(cd);
     }
   }
@@ -59,16 +82,14 @@ static float minDistance(const ColorDistribution &h,
   return plus_proche;
 }
 
-Mat recoObject(Mat input, const std::vector<ColorDistribution> &col_hists,
-               const std::vector<ColorDistribution> &col_hists_object,
-               const std::vector<Vec3b> &colors, const int bloc) {
+cv::Mat
+recoObject(cv::Mat input,
+           const std::vector<std::vector<ColorDistribution>> &all_col_hists,
+           const vector<Vec3b> &colors, const int bloc) {
 
   /*
    * Assigne les couleurs déterminées aux régions détectés comme "objet" ou
-   * backgroudn
-   *
-   * ATTENTION: modifie les vecteurs col_hists, col_hists_object (normalisation)
-   *
+   * backgrounds
    */
   Mat output = input.clone();
 
@@ -80,13 +101,26 @@ Mat recoObject(Mat input, const std::vector<ColorDistribution> &col_hists,
       ColorDistribution h =
           ColorDistribution::getColorDistribution(input, pt1, pt2);
 
-      float d_bg =
-          minDistance(h, col_hists); // distance minimale contre les fonds
-      float d_obj = minDistance(
-          h, col_hists_object); // distance minimale contre les objets
+      if (all_col_hists.empty())
+        continue;
 
-      // assignation de la couleur selon tyep
-      const Vec3b &c = (d_bg < d_obj) ? colors[0] : colors[1];
+      // Cherche la classe (fond/objet1/objet2/...) la plus proche.
+      size_t best_class = 0;
+      float best_distance = std::numeric_limits<float>::infinity();
+      for (size_t i = 0; i < all_col_hists.size(); ++i) {
+        if (all_col_hists[i].empty()) {
+          continue;
+        }
+        const float d = minDistance(h, all_col_hists[i]);
+        if (d < best_distance) {
+          best_distance = d;
+          best_class = i;
+        }
+      }
+
+      const Vec3b default_color(0, 0, 0);
+      const Vec3b c =
+          (best_class < colors.size()) ? colors[best_class] : default_color;
 
       Rect r(x, y, bloc, bloc);
       output(r).setTo(Scalar(c[0], c[1], c[2]));
