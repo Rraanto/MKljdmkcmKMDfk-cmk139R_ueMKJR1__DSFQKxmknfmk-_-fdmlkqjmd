@@ -16,7 +16,7 @@
 #include "color_distribution.h"
 #include <vector>
 
-#define FPS 60
+#define FPS 30
 
 using namespace cv;
 using namespace std;
@@ -182,7 +182,7 @@ int main(int ragc, char **argv) {
       Mat gray;
       cvtColor(img_input, gray, COLOR_BGR2GRAY);
 
-      Mat reco_img = recoObject(img_input, all_col_hists, colors, 8);
+      Mat reco_img = recoObject(img_input, all_col_hists, colors, 16);
 
       cvtColor(gray, img_input, COLOR_GRAY2BGR);
       out = 0.5 * reco_img + 0.5 * img_input;

@@ -29,13 +29,9 @@ void ColorDistribution::finished() {
     return;
   }
   const float inv = 1.0f / static_cast<float>(nb);
-  for (int r = 0; r < 8; ++r) {
-    for (int g = 0; g < 8; ++g) {
-      for (int b = 0; b < 8; ++b) {
-        data[r][g][b] *= inv;
-      }
-    }
-  }
+  float *hist = &data[0][0][0];
+  for (int i = 0; i < 8 * 8 * 8; ++i)
+    hist[i] *= inv;
 }
 
 float ColorDistribution::distance(const ColorDistribution &other) const {

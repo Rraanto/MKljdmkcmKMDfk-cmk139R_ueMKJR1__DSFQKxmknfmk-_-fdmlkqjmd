@@ -67,7 +67,7 @@ recoObject(cv::Mat input,
    * Assigne les couleurs déterminées aux régions détectés comme "objet" ou
    * backgrounds
    */
-  Mat output = input.clone();
+  Mat output(input.size(), input.type());
 
   for (int y = 0; y <= input.rows - bloc; y += bloc) {
     for (int x = 0; x <= input.cols - bloc; x += bloc) {
