@@ -6,6 +6,9 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <array>
+#include <cstdint>
+
 struct ColorDistribution {
   float data[8][8][8]; // histogramme
   /**
@@ -14,6 +17,12 @@ struct ColorDistribution {
    *
    */
   int nb;
+
+  std::array<uint8_t, 512> counts;
+
+  uint16_t nz_idx[64]; // garder les zeros
+  uint8_t nz_val[64];
+  uint8_t nz_len;
 
   ColorDistribution() { reset(); }
 

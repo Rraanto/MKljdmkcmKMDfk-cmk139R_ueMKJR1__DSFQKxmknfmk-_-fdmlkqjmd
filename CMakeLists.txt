@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(TraitementImages LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenCV REQUIRED)
 
@@ -27,3 +28,5 @@ target_link_libraries(callbacks PRIVATE ti_opencv color_distribution)
 
 add_executable(main src/main.cpp)
 target_link_libraries(main PRIVATE ti_opencv color_distribution callbacks)
+
+target_compile_options(color_distribution PRIVATE -O3 -mavx2)
